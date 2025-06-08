@@ -64,17 +64,17 @@
     "DATABASE_URL": {
       "description": "put mongodb or postgres or princedb database url for bots better performance",
       "required": false,
-      "value": ""
+      "value": "database.json"
     },
     "ANTI_LINK": {
       "description": "it will dlt links and kick user",
       "required": false,
       "value": "true"
     },
-    "AutoReaction": {
-      "description": "make it true to react on chats",
-      "required": false,
-      "value": "false"
+     "AutoReaction": {
+     "description": "Set to 'true' for reactions in all chats, 'group' for group chats only, 'private' for private chats only, or 'false' to disable",
+     "required": false,
+     "value": "false"
     },
     "autoreactions_emojies": {
       "description": "put your favourite emojies for AutoReactions on chats or make it empty for all default emojies",

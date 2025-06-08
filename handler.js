@@ -1,38 +1,39 @@
-import { smsg } from './lib/simple.js'
-import { format } from 'util'
-import { fileURLToPath } from 'url'
-import path, { join } from 'path'
-import { unwatchFile, watchFile } from 'fs'
-import chalk from 'chalk'
-import fetch from 'node-fetch'
-import Pino from 'pino'
-
-
+import {generateWAMessageFromContent} from '@whiskeysockets/baileys';
+import {smsg} from './lib/simple.js';
+import {format} from 'util';
+import {fileURLToPath} from 'url';
+import path, {join} from 'path';
+import {unwatchFile, watchFile} from 'fs';
+import fs from 'fs';
+import chalk from 'chalk';
+import ws from 'ws';
 
 /**
- * @type {import('@whiskeysockets/baileys')}
+ * @type {import('@adiwajshing/baileys')}  
  */
 const { proto } = (await import('@whiskeysockets/baileys')).default
 const isNumber = x => typeof x === 'number' && !isNaN(x)
 const delay = ms => isNumber(ms) && new Promise(resolve => setTimeout(function () {
-    clearTimeout(this)
-    resolve()
+clearTimeout(this)
+resolve()
 }, ms))
- 
+
 /**
  * Handle messages upsert
- * @param {import('@whiskeysockets/baileys').BaileysEventMap<unknown>['messages.upsert']} groupsUpdate 
+ * @param {import('@adiwajshing/baileys').BaileysEventMap<unknown>['messages.upsert']} groupsUpdate 
  */
 export async function handler(chatUpdate) {
-    this.msgqueque = this.msgqueque || []
-    if (!chatUpdate)
-        return
+this.msgqueque = this.msgqueque || []
+this.uptime = this.uptime || Date.now()
+if (!chatUpdate)
+return
     this.pushMessage(chatUpdate.messages).catch(console.error)
-    let m = chatUpdate.messages[chatUpdate.messages.length - 1]
-    if (!m)
-        return
-    if (global.db.data == null)
-        await global.loadDatabase()
+let m = chatUpdate.messages[chatUpdate.messages.length - 1]
+if (!m)
+return;
+if (global.db.data == null)
+await global.loadDatabase()       
+
     try {
         m = smsg(this, m) || m
         if (!m)
@@ -620,15 +621,20 @@ if (statusViewEnabled || bot.statusview) {
 	    
 	    
 
-if (
-  (process.env.AutoReaction && process.env.AutoReaction.toLowerCase() === 'true') ||
-  (global.db.data.settings[this.user.jid]?.autoreacts)
-) {
+const autoReactionSetting = process.env.AutoReaction ? process.env.AutoReaction.toLowerCase() : null;
+const dbAutoReact = global.db.data.settings[this.user.jid]?.autoreacts;
+const isGroup = m.chat.endsWith('@g.us');
+const isPrivate = !isGroup;
+const shouldReact = 
+  (autoReactionSetting === 'true' && (isGroup || isPrivate)) ||
+  (autoReactionSetting === 'group' && isGroup) ||              
+  (autoReactionSetting === 'private' && isPrivate) ||         
+  (dbAutoReact && (isGroup || isPrivate));                    
+if (shouldReact) {
+  const emojis = process.env.autoreactions_emojies
+    ? process.env.autoreactions_emojies.split(',')
+    : ["💛", "🤍", "💗", "♥️", "💞", "💖", "💓", "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "💟", "🕊️", "🥀", "🦋", "🐣", "❤‍🩹", "♥️", "🌸", "❣️", "✨", "🎀", "🩷", "🖤", "🤍", "🤎", "💛", "💚", "🩵", "💙", "💜", "💟", "💓", "🩶"];
   if (m.text && m.text.match(/(prince|a|ا|م|ي|ء|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z)/gi)) {
-    const emojis = process.env.autoreactions_emojies
-      ? process.env.autoreactions_emojies.split(',')
-      : ["💛", "🤍", "💗", "♥️", "💞", "💖", "💓", "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "💟", "🕊️", "🥀", "🦋", "🐣", "❤‍🩹", "♥️", "🌸", "❣️", "✨", "🎀", "🩷", "🖤", "🤍", "🤎", "💛", "💚", "🩵", "💙", "💜", "💟", "💓", "🩶"];
-
     this.sendMessage(m.chat, {
       react: {
         text: (m.sender === '923092668108@s.whatsapp.net') ? "👑" : pickRandom(emojis),
@@ -637,10 +643,6 @@ if (
     });
   }
   if (m.message?.imageMessage || m.message?.videoMessage || m.message?.audioMessage) {
-    const emojis = process.env.autoreactions_emojies
-      ? process.env.autoreactions_emojies.split(',')
-      : ["💛", "🤍", "💗", "♥️", "💞", "💖", "💓", "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "💟", "🕊️", "🥀", "🦋", "🐣", "❤‍🩹", "♥️", "🌸", "❣️", "✨", "🎀", "🩷", "🖤", "🤍", "🤎", "💛", "💚", "🩵", "💙", "💜", "💟", "💓", "🩶"];
-
     this.sendMessage(m.chat, {
       react: {
         text: pickRandom(emojis),
@@ -649,11 +651,9 @@ if (
     });
   }
 }
-
 function pickRandom(list) {
   return list[Math.floor(Math.random() * list.length)];
 }
-
 
 	    
 
@@ -773,6 +773,7 @@ await this.sendMessage(id, { text, mentions: this.parseMention(text) })
 /**
 Delete Chat
  */
+
 export async function deleteUpdate(message) {
     try {
         const antidelete = process.env.antidelete?.toLowerCase();
@@ -781,17 +782,24 @@ export async function deleteUpdate(message) {
         if (fromMe) return;
         const isGroup = message.isGroup;   
         if (
-            (antidelete === 'private' && isGroup) || // Ignore group messages if 'private' is set
-            (antidelete !== 'all' && antidelete !== 'private') // Ignore invalid values
+            (antidelete === 'private' && isGroup) || 
+            (antidelete !== 'all' && antidelete !== 'private') 
         ) {
             return;
-	}
+        }
         let msg = this.serializeM(this.loadMessage(id));
         if (!msg) return;
+        const deleteTime = new Date().toLocaleString('en-US', {
+            dateStyle: 'medium',
+            timeStyle: 'short',
+            timeZone: 'Asia/Karachi' 
+        });
+
         await this.reply(
             conn.user.id,
             `🚨 *Message Deleted Alert!* 🚨
 📲 *Number:* @${participant.split`@`[0]}  
+⏰ *Deleted At:* ${deleteTime}
 ✋ *Deleted Below:* 👇  
             `.trim(),
             msg,
@@ -802,8 +810,6 @@ export async function deleteUpdate(message) {
         console.error(e);
     }
 }
-
-
 
 /*
  Polling Update 
